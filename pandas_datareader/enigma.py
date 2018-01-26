@@ -11,28 +11,21 @@ from pandas_datareader.base import _BaseReader
 class EnigmaReader(_BaseReader):
     """
     Collects current snapshot of Enigma data located at the specified
-    dataset ID and returns a pandas DataFrame.
+    data set ID and returns a pandas DataFrame.
 
-    # Example
-    Download current snapshot for the following Florida Inspections Dataset
+    Examples
+    --------
+    Download current snapshot for the following Florida Inspections Dataset:
     https://public.enigma.com/datasets/bedaf052-5fcd-4758-8d27-048ce8746c6a
 
-    Usage (high-level):
-    ```
-        import pandas_datareader as pdr
-        df = pdr.get_data_enigma('bedaf052-5fcd-4758-8d27-048ce8746c6a')
+    >>> import pandas_datareader as pdr
+    >>> df = pdr.get_data_enigma('bedaf052-5fcd-4758-8d27-048ce8746c6a')
 
-        # in the event that ENIGMA_API_KEY does not exist in your env,
-        # it can be supplied as the second arg:
-        df = prd.get_data_enigma('bedaf052-5fcd-4758-8d27-048ce8746c6a',
-        ...                      'INSERT_API_KEY')
-    ```
+    In the event that ENIGMA_API_KEY does not exist in your env, the key can
+    be supplied as the second argument or as the keyword argument `api_key`
 
-    Usage:
-    ```
-        df = EnigmaReader(dataset_id='bedaf052-5fcd-4758-8d27-048ce8746c6a',
-        ...               api_key='INSERT_API_KEY').read()
-    ```
+    >>> df = EnigmaReader(dataset_id='bedaf052-5fcd-4758-8d27-048ce8746c6a',
+    ...                   api_key='INSERT_API_KEY').read()
     """
     def __init__(self,
                  dataset_id=None,
@@ -43,7 +36,7 @@ class EnigmaReader(_BaseReader):
 
         super(EnigmaReader, self).__init__(symbols=[],
                                            retry_count=retry_count,
-                                           pause=pause)
+                                           pause=pause, session=session)
         if api_key is None:
             self._api_key = os.getenv('ENIGMA_API_KEY')
             if self._api_key is None:
@@ -70,6 +63,7 @@ class EnigmaReader(_BaseReader):
         self._retry_delay = pause
 
     def read(self):
+        """Read data"""
         try:
             return self._read()
         finally:

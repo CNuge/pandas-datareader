@@ -1,15 +1,19 @@
 # flake8: noqa
-import pandas as pd
-import pandas.io.common as com
-import pandas.compat as compat
-
-from io import BytesIO
+import sys
 from distutils.version import LooseVersion
+from io import BytesIO
+
+import pandas as pd
+import pandas.compat as compat
+import pandas.io.common as com
+
+PY3 = sys.version_info >= (3, 0)
 
 PANDAS_VERSION = LooseVersion(pd.__version__)
 
 PANDAS_0190 = (PANDAS_VERSION >= LooseVersion('0.19.0'))
 PANDAS_0200 = (PANDAS_VERSION >= LooseVersion('0.20.0'))
+PANDAS_0210 = (PANDAS_VERSION >= LooseVersion('0.21.0'))
 
 if PANDAS_0190:
     from pandas.api.types import is_number

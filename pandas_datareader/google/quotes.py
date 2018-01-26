@@ -15,10 +15,11 @@ class GoogleQuotesReader(_BaseReader):
 
     @property
     def url(self):
-        return 'http://www.google.com/finance/info'
+        return 'https://finance.google.com/finance/info'
 
     @property
     def params(self):
+        """Parameters to use in API calls"""
         if isinstance(self.symbols, pd.compat.string_types):
             sym_list = self.symbols
         else:

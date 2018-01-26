@@ -14,6 +14,8 @@ from pandas_datareader.base import _BaseReader
 # 3-digit ISO 3166-1 alpha-3, codes, with 'all', 'ALL', and 'All' appended ot
 # the end.
 
+WB_API_URL = 'https://api.worldbank.org/v2'
+
 country_codes = ['AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR',
                  'AS', 'AT', 'AU', 'AW', 'AX', 'AZ', 'BA', 'BB', 'BD', 'BE',
                  'BF', 'BG', 'BH', 'BI', 'BJ', 'BL', 'BM', 'BN', 'BO', 'BQ',
@@ -80,43 +82,30 @@ class WorldBankReader(_BaseReader):
 
     Parameters
     ----------
-
     symbols: WorldBank indicator string or list of strings
         taken from the ``id`` field in ``WDIsearch()``
-
     countries: string or list of strings.
         ``all`` downloads data for all countries
         2 or 3 character ISO country codes select individual
         countries (e.g.``US``,``CA``) or (e.g.``USA``,``CAN``).  The codes
         can be mixed.
-
         The two ISO lists of countries, provided by wikipedia, are hardcoded
         into pandas as of 11/10/2014.
-
     start: Timestamp or int
         First year of the data series. Month and day are ignored.
-
     end: Timestamp or int
         Last year of the data series (inclusive). Month and day are ignored.
-
     errors: str {'ignore', 'warn', 'raise'}, default 'warn'
         Country codes are validated against a hardcoded list.  This controls
         the outcome of that validation, and attempts to also apply
         to the results from world bank.
-
         errors='raise', will raise a ValueError on a bad country code.
-
-    Returns
-    -------
-
-    ``pandas`` DataFrame with columns: country, iso_code, year,
-    indicator value.
     """
 
     _format = 'json'
 
     def __init__(self, symbols=None, countries=None,
-                 start=None, end=None,
+                 start=None, end=None, freq=None,
                  retry_count=3, pause=0.001, session=None, errors='warn'):
 
         if symbols is None:
@@ -144,21 +133,41 @@ class WorldBankReader(_BaseReader):
                 warnings.warn('Non-standard ISO '
                               'country codes: %s' % tmp, UserWarning)
 
+        freq_symbols = ['M', 'Q', 'A', None]
+
+        if freq not in freq_symbols:
+            msg = 'The frequency `{0}` is not in the accepted ' \
+                  'list.'.format(freq)
+            raise ValueError(msg)
+
+        self.freq = freq
         self.countries = countries
         self.errors = errors
 
     @property
     def url(self):
+        """API URL"""
         countries = ';'.join(self.countries)
-        return ("http://api.worldbank.org/countries/" +
-                countries + "/indicators/")
+        return WB_API_URL + '/countries/' + countries + '/indicators/'
 
     @property
     def params(self):
-        return {'date': '{0}:{1}'.format(self.start.year, self.end.year),
-                'per_page': 25000, 'format': 'json'}
+        """Parameters to use in API calls"""
+        if self.freq == 'M':
+            return {'date': '{0}M{1:02d}:{2}M{3:02d}'.format(self.start.year,
+                    self.start.month, self.end.year, self.end.month),
+                    'per_page': 25000, 'format': 'json'}
+        elif self.freq == 'Q':
+            return {'date': '{0}Q{1}:{2}Q{3}'.format(self.start.year,
+                    self.start.quarter, self.end.year,
+                    self.end.quarter), 'per_page': 25000,
+                    'format': 'json'}
+        else:
+            return {'date': '{0}:{1}'.format(self.start.year, self.end.year),
+                    'per_page': 25000, 'format': 'json'}
 
     def read(self):
+        """Read data"""
         try:
             return self._read()
         finally:
@@ -201,7 +210,7 @@ class WorldBankReader(_BaseReader):
             try:
                 msg = msg['key'].split() + ["\n "] + msg['value'].split()
                 wb_err = ' '.join(msg)
-            except:
+            except Exception:
                 wb_err = ""
                 if 'key' in msg.keys():
                     wb_err = msg['key'] + "\n "
@@ -229,11 +238,19 @@ class WorldBankReader(_BaseReader):
     def get_countries(self):
         """Query information about countries
 
+        Notes
+        -----
         Provides information such as:
-            country code, region, income level,
-            capital city, latitude, and longitude
+
+          * country code
+          * region
+          * income level
+          * capital city
+          * latitude
+          * and longitude
+
         """
-        url = 'http://api.worldbank.org/countries/?per_page=1000&format=json'
+        url = WB_API_URL + '/countries/?per_page=1000&format=json'
 
         resp = self._get_response(url)
         data = resp.json()[1]
@@ -256,7 +273,7 @@ class WorldBankReader(_BaseReader):
         if isinstance(_cached_series, pd.DataFrame):
             return _cached_series.copy()
 
-        url = 'http://api.worldbank.org/indicators?per_page=50000&format=json'
+        url = WB_API_URL + '/indicators?per_page=50000&format=json'
 
         resp = self._get_response(url)
         data = resp.json()[1]
@@ -274,7 +291,7 @@ class WorldBankReader(_BaseReader):
         def get_value(x):
             try:
                 return x['value']
-            except:
+            except Exception:
                 return ''
 
         def get_list_of_values(x):
@@ -298,7 +315,6 @@ class WorldBankReader(_BaseReader):
 
         Parameters
         ----------
-
         string: string
             regular expression
         field: string
@@ -309,7 +325,6 @@ class WorldBankReader(_BaseReader):
 
         Notes
         -----
-
         The first time this function is run it will download and cache the full
         list of available series. Depending on the speed of your network
         connection, this can take time. Subsequent searches will use the cached
@@ -331,17 +346,15 @@ class WorldBankReader(_BaseReader):
         return out
 
 
-def download(country=None, indicator=None, start=2003, end=2005,
+def download(country=None, indicator=None, start=2003, end=2005, freq=None,
              errors='warn', **kwargs):
     """
     Download data series from the World Bank's World Development Indicators
 
     Parameters
     ----------
-
     indicator: string or list of strings
         taken from the ``id`` field in ``WDIsearch()``
-
     country: string or list of strings.
         ``all`` downloads data for all countries
         2 or 3 character ISO country codes select individual
@@ -350,32 +363,29 @@ def download(country=None, indicator=None, start=2003, end=2005,
 
         The two ISO lists of countries, provided by wikipedia, are hardcoded
         into pandas as of 11/10/2014.
-
     start: int
         First year of the data series
-
     end: int
         Last year of the data series (inclusive)
-
+    freq: str
+        frequency or periodicity of the data to be retrieved (e.g. 'M' for
+        monthly, 'Q' for quarterly, and 'A' for annual). None defaults to
+        annual.
     errors: str {'ignore', 'warn', 'raise'}, default 'warn'
         Country codes are validated against a hardcoded list.  This controls
         the outcome of that validation, and attempts to also apply
         to the results from world bank.
-
         errors='raise', will raise a ValueError on a bad country code.
-
     kwargs:
         keywords passed to WorldBankReader
 
     Returns
     -------
-
-    ``pandas`` DataFrame with columns: country, iso_code, year,
-    indicator value.
-
+    data : DataFrame
+        DataFrame with columns country, iso_code, year, indicator value
     """
     return WorldBankReader(symbols=indicator, countries=country,
-                           start=start, end=end, errors=errors,
+                           start=start, end=end, freq=freq, errors=errors,
                            **kwargs).read()
 
 
@@ -397,7 +407,7 @@ def get_countries(**kwargs):
 
 
 def get_indicators(**kwargs):
-    '''Download information about all World Bank data series
+    """Download information about all World Bank data series
 
     Parameters
     ----------
@@ -405,7 +415,7 @@ def get_indicators(**kwargs):
     kwargs:
         keywords passed to WorldBankReader
 
-    '''
+    """
     return WorldBankReader(**kwargs).get_indicators()
 
 
@@ -418,12 +428,10 @@ def search(string='gdp.*capi', field='name', case=False, **kwargs):
 
     Parameters
     ----------
-
     string: string
         regular expression
     field: string
-        id, name, source, sourceNote, sourceOrganization, topics
-        See notes below
+        id, name, source, sourceNote, sourceOrganization, topics. See notes
     case: bool
         case sensitive search?
     kwargs:
@@ -431,7 +439,6 @@ def search(string='gdp.*capi', field='name', case=False, **kwargs):
 
     Notes
     -----
-
     The first time this function is run it will download and cache the full
     list of available series. Depending on the speed of your network
     connection, this can take time. Subsequent searches will use the cached
@@ -439,12 +446,13 @@ def search(string='gdp.*capi', field='name', case=False, **kwargs):
 
     id : Data series indicator (for use with the ``indicator`` argument of
     ``WDI()``) e.g. NY.GNS.ICTR.GN.ZS"
-    name: Short description of the data series
-    source: Data collection project
-    sourceOrganization: Data collection organization
-    note:
-    sourceNote:
-    topics:
+
+      * name: Short description of the data series
+      * source: Data collection project
+      * sourceOrganization: Data collection organization
+      * note:
+      * sourceNote:
+      * topics:
     """
 
     return WorldBankReader(**kwargs).search(string=string, field=field,

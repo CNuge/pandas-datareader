@@ -8,13 +8,13 @@ from pandas_datareader.base import _BaseReader
 
 
 class EurostatReader(_BaseReader):
-
     """Get data for the given name from Eurostat."""
 
     _URL = 'http://www.ec.europa.eu/eurostat/SDMX/diss-web/rest'
 
     @property
     def url(self):
+        """API URL"""
         if not isinstance(self.symbols, compat.string_types):
             raise ValueError('data name must be string')
 
@@ -24,6 +24,7 @@ class EurostatReader(_BaseReader):
 
     @property
     def dsd_url(self):
+        """API DSD URL"""
         if not isinstance(self.symbols, compat.string_types):
             raise ValueError('data name must be string')
 
